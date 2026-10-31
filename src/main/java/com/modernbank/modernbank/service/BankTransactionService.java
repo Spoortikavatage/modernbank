@@ -13,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.util.List;
+//import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 @Service
 public class BankTransactionService {
 
@@ -154,10 +156,12 @@ public TransactionResponse withdraw(
 }
 
 @Transactional(readOnly = true)
-public List<TransactionResponse> getTransactionHistory(
+public Page<TransactionResponse> getTransactionHistory(
         Long authenticatedUserId,
-        Long accountId) {
+        Long accountId,
+        Pageable pageable) {
 
+    // Step 1: Verify account ownership
     BankAccount account = bankAccountRepository
             .findById(accountId)
             .filter(a -> a.getUser().getId()
@@ -167,10 +171,17 @@ public List<TransactionResponse> getTransactionHistory(
                     "Account not found"
             ));
 
-    return bankTransactionRepository
-            .findAllByBankAccount_IdOrderByCreatedAtDesc(account.getId())
-            .stream()
-            .map(transaction -> new TransactionResponse(
+    // Step 2: Retrieve only the requested page
+    Page<BankTransaction> transactions =
+            bankTransactionRepository
+                    .findAllByBankAccount_IdOrderByCreatedAtDescIdDesc(
+                            account.getId(),
+                            pageable
+                    );
+
+    // Step 3: Convert entities to response DTOs
+    return transactions.map(transaction ->
+            new TransactionResponse(
                     transaction.getReferenceId(),
                     account.getId(),
                     account.getAccountNumber(),
@@ -179,8 +190,8 @@ public List<TransactionResponse> getTransactionHistory(
                     transaction.getBalanceAfter(),
                     transaction.getDescription(),
                     transaction.getCreatedAt()
-            ))
-            .toList();
+            )
+    );
 }
 
 }

@@ -13,7 +13,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import tools.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
+//import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import tools.jackson.databind.JsonNode;
 
@@ -29,9 +29,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
+//import java.util.concurrent.ExecutionException;
 
-import org.springframework.test.web.servlet.MvcResult;
+//import org.springframework.test.web.servlet.MvcResult;
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
@@ -166,7 +166,7 @@ private String registerAndLogin() throws Exception {
 
         JsonNode json = objectMapper.readTree(response);
 
-        return json.get("accessToken").asText();
+        return json.get("accessToken").stringValue();
     }
 
     private void deposit(String token, long accountId, int amount) throws Exception {
@@ -249,10 +249,10 @@ void retryingSameTransferDoesNotMoveMoneyTwice() throws Exception {
 
     // 6. Compare the transfer reference IDs
     String firstReference = objectMapper.readTree(firstResponse)
-        .get("referenceId").asText();
+        .get("referenceId").stringValue();
 
     String secondReference = objectMapper.readTree(secondResponse)
-        .get("referenceId").asText();
+        .get("referenceId").stringValue();
 
     org.junit.jupiter.api.Assertions.assertEquals(
         firstReference, secondReference

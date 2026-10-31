@@ -66,24 +66,38 @@ void cleanDatabase() {
     userRepository.deleteAll();
 }
     @Test
-    void ownerCanViewTransactionHistory() throws Exception {
-        String token = registerAndLogin();
-        long accountId = createAccount(token);
+void ownerCanViewTransactionHistory() throws Exception {
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
 
-        deposit(token, accountId, 1000);
-        withdraw(token, accountId, 200);
+    deposit(token, accountId, 1000);
+    withdraw(token, accountId, 200);
 
-        mockMvc.perform(get("/api/v1/accounts/{accountId}/transactions", accountId)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].transactionType").value("WITHDRAWAL"))
-                .andExpect(jsonPath("$[0].amount").value(200))
-                .andExpect(jsonPath("$[0].balanceAfter").value(800))
-                .andExpect(jsonPath("$[1].transactionType").value("DEPOSIT"))
-                .andExpect(jsonPath("$[1].amount").value(1000))
-                .andExpect(jsonPath("$[1].balanceAfter").value(1000));
-    }
+    mockMvc.perform(get("/api/v1/accounts/{accountId}/transactions", accountId)
+                    .param("page", "0")
+                    .param("size", "10")
+                    .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+
+            // Verify pagination metadata
+            .andExpect(jsonPath("$.content.length()").value(2))
+            .andExpect(jsonPath("$.totalElements").value(2))
+            .andExpect(jsonPath("$.totalPages").value(1))
+            .andExpect(jsonPath("$.number").value(0))
+            .andExpect(jsonPath("$.size").value(10))
+
+            // Verify newest transaction: withdrawal
+            .andExpect(jsonPath("$.content[0].transactionType")
+                    .value("WITHDRAWAL"))
+            .andExpect(jsonPath("$.content[0].amount").value(200))
+            .andExpect(jsonPath("$.content[0].balanceAfter").value(800))
+
+            // Verify older transaction: deposit
+            .andExpect(jsonPath("$.content[1].transactionType")
+                    .value("DEPOSIT"))
+            .andExpect(jsonPath("$.content[1].amount").value(1000))
+            .andExpect(jsonPath("$.content[1].balanceAfter").value(1000));
+}
 
     @Test
     void anotherUserCannotViewTransactionHistory() throws Exception {
@@ -99,32 +113,137 @@ void cleanDatabase() {
                 .andExpect(status().isNotFound());
     }
 
-    @Test
-    void transactionsAreReturnedNewestFirst() throws Exception {
-        String token = registerAndLogin();
-        long accountId = createAccount(token);
+   @Test
+void transactionsAreReturnedNewestFirst() throws Exception {
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
 
-        deposit(token, accountId, 1000);
-        withdraw(token, accountId, 200);
-        deposit(token, accountId, 500);
+    // Create three transactions in sequence
+    deposit(token, accountId, 1000);
+    withdraw(token, accountId, 200);
+    deposit(token, accountId, 500);
 
-        mockMvc.perform(get("/api/v1/accounts/{accountId}/transactions", accountId)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(3))
-                .andExpect(jsonPath("$[0].transactionType").value("DEPOSIT"))
-                .andExpect(jsonPath("$[0].amount").value(500))
-                .andExpect(jsonPath("$[1].transactionType").value("WITHDRAWAL"))
-                .andExpect(jsonPath("$[1].amount").value(200))
-                .andExpect(jsonPath("$[2].transactionType").value("DEPOSIT"))
-                .andExpect(jsonPath("$[2].amount").value(1000));
-    }
+    mockMvc.perform(
+            get("/api/v1/accounts/{accountId}/transactions", accountId)
+                    .param("page", "0")
+                    .param("size", "10")
+                    .header("Authorization", "Bearer " + token)
+    )
+            .andExpect(status().isOk())
+
+            // Verify pagination metadata
+            .andExpect(jsonPath("$.content.length()").value(3))
+            .andExpect(jsonPath("$.totalElements").value(3))
+            .andExpect(jsonPath("$.totalPages").value(1))
+
+            // Newest transaction: deposit ₹500
+            .andExpect(jsonPath("$.content[0].transactionType")
+                    .value("DEPOSIT"))
+            .andExpect(jsonPath("$.content[0].amount").value(500))
+
+            // Second transaction: withdrawal ₹200
+            .andExpect(jsonPath("$.content[1].transactionType")
+                    .value("WITHDRAWAL"))
+            .andExpect(jsonPath("$.content[1].amount").value(200))
+
+            // Oldest transaction: deposit ₹1000
+            .andExpect(jsonPath("$.content[2].transactionType")
+                    .value("DEPOSIT"))
+            .andExpect(jsonPath("$.content[2].amount").value(1000));
+}
 
     @Test
     void unauthenticatedUserCannotViewHistory() throws Exception {
         mockMvc.perform(get("/api/v1/accounts/1/transactions"))
                 .andExpect(status().isUnauthorized());
     }
+    @Test
+void transactionHistoryShouldSupportPagination() throws Exception {
+
+    // Step 1: Register and log in
+    String token = registerAndLogin();
+
+    // Step 2: Create a bank account
+    long accountId = createAccount(token);
+
+    // Step 3: Create three transactions
+    deposit(token, accountId, 1000);
+    withdraw(token, accountId, 200);
+    deposit(token, accountId, 500);
+
+    // Step 4: Request the first page (2 transactions)
+    mockMvc.perform(
+            get("/api/v1/accounts/{accountId}/transactions", accountId)
+                    .param("page", "0")
+                    .param("size", "2")
+                    .header("Authorization", "Bearer " + token)
+    )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(2))
+            .andExpect(jsonPath("$.totalElements").value(3))
+            .andExpect(jsonPath("$.totalPages").value(2))
+            .andExpect(jsonPath("$.number").value(0))
+            .andExpect(jsonPath("$.first").value(true))
+            .andExpect(jsonPath("$.last").value(false))
+            .andExpect(jsonPath("$.content[0].transactionType")
+                    .value("DEPOSIT"))
+            .andExpect(jsonPath("$.content[0].amount").value(500))
+            .andExpect(jsonPath("$.content[1].transactionType")
+                    .value("WITHDRAWAL"));
+
+    // Step 5: Request the second page (1 transaction)
+    mockMvc.perform(
+            get("/api/v1/accounts/{accountId}/transactions", accountId)
+                    .param("page", "1")
+                    .param("size", "2")
+                    .header("Authorization", "Bearer " + token)
+    )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.totalElements").value(3))
+            .andExpect(jsonPath("$.totalPages").value(2))
+            .andExpect(jsonPath("$.number").value(1))
+            .andExpect(jsonPath("$.first").value(false))
+            .andExpect(jsonPath("$.last").value(true))
+            .andExpect(jsonPath("$.content[0].transactionType")
+                    .value("DEPOSIT"))
+            .andExpect(jsonPath("$.content[0].amount").value(1000));
+}
+
+@Test
+void invalidPaginationParametersShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    // Negative page number
+    mockMvc.perform(
+            get("/api/v1/accounts/{accountId}/transactions", accountId)
+                    .param("page", "-1")
+                    .param("size", "10")
+                    .header("Authorization", "Bearer " + token)
+    )
+            .andExpect(status().isBadRequest());
+
+    // Page size cannot be zero
+    mockMvc.perform(
+            get("/api/v1/accounts/{accountId}/transactions", accountId)
+                    .param("page", "0")
+                    .param("size", "0")
+                    .header("Authorization", "Bearer " + token)
+    )
+            .andExpect(status().isBadRequest());
+
+    // Maximum allowed page size is 100
+    mockMvc.perform(
+            get("/api/v1/accounts/{accountId}/transactions", accountId)
+                    .param("page", "0")
+                    .param("size", "101")
+                    .header("Authorization", "Bearer " + token)
+    )
+            .andExpect(status().isBadRequest());
+}
 
     private long createAccount(String token) throws Exception {
         String body = objectMapper.writeValueAsString(
@@ -208,6 +327,7 @@ void cleanDatabase() {
 
         JsonNode json = objectMapper.readTree(response);
 
-        return json.get("accessToken").asText();
+        return json.get("accessToken").stringValue();
     }
+
 }

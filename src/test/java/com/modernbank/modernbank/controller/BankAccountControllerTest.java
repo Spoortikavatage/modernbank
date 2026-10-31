@@ -153,6 +153,6 @@ void cleanDatabase() {
 
         JsonNode json = objectMapper.readTree(response);
 
-        return json.get("accessToken").asText();
+        return json.get("accessToken").stringValue();
     }
 }
