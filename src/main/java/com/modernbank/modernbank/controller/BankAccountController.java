@@ -13,7 +13,11 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import com.modernbank.modernbank.exception.ApiErrorResponse;
 @RestController
 @RequestMapping("/api/v1/accounts")
 public class BankAccountController {
@@ -24,6 +28,33 @@ public class BankAccountController {
             BankAccountService bankAccountService) {
         this.bankAccountService = bankAccountService;
     }
+
+@Operation(
+    summary = "Open a new bank account",
+    description = "Creates a bank account for the authenticated customer. " +
+                  "The customer must provide a supported account type. " +
+                  "The newly created account belongs to the authenticated user."
+)
+@ApiResponse(
+    responseCode = "200",
+    description = "Bank account created successfully"
+)
+@ApiResponse(
+    responseCode = "400",
+    description = "Invalid account creation request",
+    content = @Content(
+        mediaType = "application/json",
+        schema = @Schema(implementation = ApiErrorResponse.class)
+    )
+)
+@ApiResponse(
+    responseCode = "401",
+    description = "Authentication required or JWT is invalid",
+    content = @Content(
+        mediaType = "application/json",
+        schema = @Schema(implementation = ApiErrorResponse.class)
+    )
+)
 
     @PostMapping
     public ResponseEntity<AccountResponse> openAccount(
@@ -43,6 +74,24 @@ public class BankAccountController {
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
+
+@Operation(
+    summary = "Get customer bank accounts",
+    description = "Retrieves all bank accounts belonging to " +
+                  "the currently authenticated customer."
+)
+@ApiResponse(
+    responseCode = "200",
+    description = "Bank accounts retrieved successfully"
+)
+@ApiResponse(
+    responseCode = "401",
+    description = "Authentication required or JWT is invalid",
+    content = @Content(
+        mediaType = "application/json",
+        schema = @Schema(implementation = ApiErrorResponse.class)
+    )
+)
 
     @GetMapping
     public List<AccountResponse> getMyAccounts(
