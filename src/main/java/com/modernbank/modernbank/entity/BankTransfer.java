@@ -9,7 +9,15 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Entity
-@Table(name = "bank_transfers")
+@Table(
+    name = "bank_transfers",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_transfer_sender_idempotency",
+            columnNames = {"from_account_id", "idempotency_key"}
+        )
+    }
+)
 public class BankTransfer {
 
     @Id

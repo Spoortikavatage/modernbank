@@ -1,3 +1,4 @@
+
 # Stage 1: Build the application
 FROM eclipse-temurin:21-jdk AS build
 
@@ -12,7 +13,15 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY --from=build /app/target/*.jar app.jar
+# Create a dedicated non-root user
+RUN groupadd --system appgroup && \
+    useradd --system --gid appgroup --home-dir /app appuser
+
+# Copy the application JAR with correct ownership
+COPY --from=build --chown=appuser:appgroup /app/target/*.jar app.jar
+
+# Switch to the non-root user
+USER appuser
 
 EXPOSE 8081
 

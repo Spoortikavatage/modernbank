@@ -34,6 +34,16 @@ services:
     networks:
       - modernbank-network
 
+    # Container security
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 100
+
 volumes:
   postgres-data:
     external: true

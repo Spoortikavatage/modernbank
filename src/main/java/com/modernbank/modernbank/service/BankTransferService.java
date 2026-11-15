@@ -18,10 +18,12 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.UUID;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 @Service
 public class BankTransferService {
-
+    private static final Logger log =
+        LoggerFactory.getLogger(BankTransferService.class);
     private final BankAccountRepository accountRepository;
     private final BankTransferRepository transferRepository;
     private final BankTransactionRepository transactionRepository;
@@ -36,142 +38,176 @@ public class BankTransferService {
         this.transactionRepository = transactionRepository;
     }
 
-    @Transactional
-    public TransferResponse transfer(
-            Long authenticatedUserId,
-            TransferRequest request) {
+   @Transactional
+public TransferResponse transfer(
+        Long authenticatedUserId,
+        TransferRequest request) {
 
-        Long fromId = request.fromAccountId();
-        Long toId = request.toAccountId();
-        BigDecimal amount = request.amount();
+    Long fromId = request.fromAccountId();
+    Long toId = request.toAccountId();
+    BigDecimal amount = request.amount();
 
-        if (fromId == null || toId == null || amount == null
-                || request.idempotencyKey() == null
-                || request.idempotencyKey().isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Invalid transfer request");
-        }
+    // Log the transfer request without exposing financial details.
+    log.info("Transfer requested from accountId: {} to accountId: {}",
+            fromId, toId);
 
-        if (amount.compareTo(BigDecimal.ZERO) <= 0
-                || amount.scale() > 2
-                || amount.precision() - amount.scale() > 17) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Invalid transfer amount");
-        }
+    if (fromId == null || toId == null || amount == null
+            || request.idempotencyKey() == null
+            || request.idempotencyKey().isBlank()) {
 
-        if (fromId.equals(toId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Cannot transfer to the same account");
-        }
+        log.warn("Transfer rejected: invalid transfer request");
 
-        // Lock accounts in a consistent order to reduce deadlocks.
-        Long firstId = Math.min(fromId, toId);
-        Long secondId = Math.max(fromId, toId);
-
-        BankAccount first = accountRepository.findByIdForUpdate(firstId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Account not found"));
-
-        BankAccount second = accountRepository.findByIdForUpdate(secondId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Account not found"));
-
-        BankAccount sender = first.getId().equals(fromId) ? first : second;
-        BankAccount receiver = first.getId().equals(toId) ? first : second;
-
-        if (!sender.getUser().getId().equals(authenticatedUserId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND, "Account not found");
-        }
-
-        // Check for a completed transfer using the same key.
-        var existing = transferRepository
-                .findByFromAccount_IdAndIdempotencyKey(
-                        fromId, request.idempotencyKey());
-
-        if (existing.isPresent()) {
-            BankTransfer previous = existing.get();
-
-            boolean sameRequest =
-                    previous.getToAccount().getId().equals(toId)
-                    && previous.getAmount().compareTo(amount) == 0
-                    && java.util.Objects.equals(
-                            previous.getDescription(),
-                            request.description());
-
-            if (!sameRequest) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "Idempotency key already used for a different transfer");
-            }
-
-            return toResponse(previous);
-        }
-
-        if (!"ACTIVE".equals(sender.getStatus())
-                || !"ACTIVE".equals(receiver.getStatus())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Both accounts must be active");
-        }
-
-        if (!sender.getCurrency().equals(receiver.getCurrency())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Account currencies must match");
-        }
-
-        if (sender.getBalance().compareTo(amount) < 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Insufficient account balance");
-        }
-
-        sender.withdraw(amount);
-        receiver.deposit(amount);
-
-        BankTransfer transfer = transferRepository.save(
-                new BankTransfer(
-                        sender,
-                        receiver,
-                        amount,
-                        request.description(),
-                        request.idempotencyKey()));
-
-        BankTransaction outgoing = new BankTransaction(
-                UUID.randomUUID().toString(),
-                sender,
-                TransactionType.TRANSFER_OUT,
-                amount,
-                sender.getBalance(),
-                request.description());
-
-        outgoing.setTransfer(transfer);
-
-        BankTransaction incoming = new BankTransaction(
-                UUID.randomUUID().toString(),
-                receiver,
-                TransactionType.TRANSFER_IN,
-                amount,
-                receiver.getBalance(),
-                request.description());
-
-        incoming.setTransfer(transfer);
-
-        transactionRepository.save(outgoing);
-        transactionRepository.save(incoming);
-
-        return toResponse(transfer);
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST, "Invalid transfer request");
     }
 
-    private TransferResponse toResponse(BankTransfer transfer) {
-        return new TransferResponse(
-                transfer.getReferenceId(),
-                transfer.getFromAccount().getId(),
-                transfer.getToAccount().getId(),
-                transfer.getAmount(),
-                transfer.getDescription(),
-                transfer.getCreatedAt());
+    if (amount.compareTo(BigDecimal.ZERO) <= 0
+            || amount.scale() > 2
+            || amount.precision() - amount.scale() > 17) {
+
+        log.warn("Transfer rejected: invalid transfer amount");
+
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST, "Invalid transfer amount");
     }
+
+    if (fromId.equals(toId)) {
+
+        log.warn("Transfer rejected: sender and receiver accounts are identical");
+
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Cannot transfer to the same account");
+    }
+
+    // Lock accounts in a consistent order to reduce deadlocks.
+    Long firstId = Math.min(fromId, toId);
+    Long secondId = Math.max(fromId, toId);
+
+    BankAccount first = accountRepository.findByIdForUpdate(firstId)
+            .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Account not found"));
+
+    BankAccount second = accountRepository.findByIdForUpdate(secondId)
+            .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Account not found"));
+
+    BankAccount sender = first.getId().equals(fromId) ? first : second;
+    BankAccount receiver = first.getId().equals(toId) ? first : second;
+
+    if (!sender.getUser().getId().equals(authenticatedUserId)) {
+
+        log.warn("Transfer rejected: authenticated user does not own sender account");
+
+        throw new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Account not found");
+    }
+
+    // Check for a completed transfer using the same key.
+    var existing = transferRepository
+            .findByFromAccount_IdAndIdempotencyKey(
+                    fromId, request.idempotencyKey());
+
+    if (existing.isPresent()) {
+        BankTransfer previous = existing.get();
+
+        boolean sameRequest =
+                previous.getToAccount().getId().equals(toId)
+                && previous.getAmount().compareTo(amount) == 0
+                && java.util.Objects.equals(
+                        previous.getDescription(),
+                        request.description());
+
+        if (!sameRequest) {
+
+            log.warn("Transfer rejected: idempotency key reused for a different request");
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Idempotency key already used for a different transfer");
+        }
+
+        log.info("Returning previously completed transfer: {}",
+                previous.getReferenceId());
+
+        return toResponse(previous);
+    }
+
+    if (!"ACTIVE".equals(sender.getStatus())
+            || !"ACTIVE".equals(receiver.getStatus())) {
+
+        log.warn("Transfer rejected: one or both accounts are inactive");
+
+        throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Both accounts must be active");
+    }
+
+    if (!sender.getCurrency().equals(receiver.getCurrency())) {
+
+        log.warn("Transfer rejected: account currencies do not match");
+
+        throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Account currencies must match");
+    }
+
+    if (sender.getBalance().compareTo(amount) < 0) {
+
+        log.warn("Transfer rejected: insufficient sender balance");
+
+        throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Insufficient account balance");
+    }
+
+    sender.withdraw(amount);
+    receiver.deposit(amount);
+
+    BankTransfer transfer = transferRepository.save(
+            new BankTransfer(
+                    sender,
+                    receiver,
+                    amount,
+                    request.description(),
+                    request.idempotencyKey()));
+
+    BankTransaction outgoing = new BankTransaction(
+            UUID.randomUUID().toString(),
+            sender,
+            TransactionType.TRANSFER_OUT,
+            amount,
+            sender.getBalance(),
+            request.description());
+
+    outgoing.setTransfer(transfer);
+
+    BankTransaction incoming = new BankTransaction(
+            UUID.randomUUID().toString(),
+            receiver,
+            TransactionType.TRANSFER_IN,
+            amount,
+            receiver.getBalance(),
+            request.description());
+
+    incoming.setTransfer(transfer);
+
+    transactionRepository.save(outgoing);
+    transactionRepository.save(incoming);
+
+    // Log successful transfer using its reference ID.
+    log.info("Transfer completed successfully. Reference: {}",
+            transfer.getReferenceId());
+
+    return toResponse(transfer);
+}
+private TransferResponse toResponse(BankTransfer transfer) {
+    return new TransferResponse(
+            transfer.getReferenceId(),
+            transfer.getFromAccount().getId(),
+            transfer.getToAccount().getId(),
+            transfer.getAmount(),
+            transfer.getDescription(),
+            transfer.getCreatedAt());
+}
 }

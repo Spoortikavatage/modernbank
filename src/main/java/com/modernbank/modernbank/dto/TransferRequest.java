@@ -1,6 +1,6 @@
 
 package com.modernbank.modernbank.dto;
-
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
@@ -12,10 +12,12 @@ import java.math.BigDecimal;
 public record TransferRequest(
 
         @NotNull(message = "Sender account ID is required")
-        Long fromAccountId,
+@Positive(message = "Sender account ID must be positive")
+Long fromAccountId,
 
-        @NotNull(message = "Receiver account ID is required")
-        Long toAccountId,
+@NotNull(message = "Receiver account ID is required")
+@Positive(message = "Receiver account ID must be positive")
+Long toAccountId,
 
         @NotNull(message = "Amount is required")
         @DecimalMin(value = "0.01",

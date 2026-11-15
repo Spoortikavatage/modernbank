@@ -155,4 +155,85 @@ void cleanDatabase() {
 
         return json.get("accessToken").stringValue();
     }
+    @Test
+void shouldRejectAccountOpeningWithoutAccountType() throws Exception {
+
+    String token = registerAndLogin();
+
+    String requestBody = objectMapper.writeValueAsString(
+            Map.of()
+    );
+
+    mockMvc.perform(post("/api/v1/accounts")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void shouldRejectInvalidAccountType() throws Exception {
+
+    String token = registerAndLogin();
+
+    String requestBody = objectMapper.writeValueAsString(
+            Map.of("accountType", "PREMIUM")
+    );
+
+    mockMvc.perform(post("/api/v1/accounts")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void missingAccountTypeShouldReturnStandardErrorResponse() throws Exception {
+
+    String token = registerAndLogin();
+
+    mockMvc.perform(post("/api/v1/accounts")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.timestamp").isNotEmpty())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error").value("Bad Request"))
+            .andExpect(jsonPath("$.message").exists())
+            .andExpect(jsonPath("$.path").value("/api/v1/accounts"));
+}
+@Test
+void invalidAccountTypeShouldReturnStandardErrorResponse()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    mockMvc.perform(post("/api/v1/accounts")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"accountType\":\"PREMIUM\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.timestamp").isNotEmpty())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error").value("Bad Request"))
+            .andExpect(jsonPath("$.message").isNotEmpty())
+            .andExpect(jsonPath("$.path").value("/api/v1/accounts"));
+}
+@Test
+void invalidJwtShouldReturnStandardUnauthorizedResponse() throws Exception {
+
+    String requestBody = objectMapper.writeValueAsString(
+            Map.of("accountType", "SAVINGS")
+    );
+
+    mockMvc.perform(post("/api/v1/accounts")
+                    .header("Authorization", "Bearer invalid-token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(requestBody))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.timestamp").isNotEmpty())
+            .andExpect(jsonPath("$.status").value(401))
+            .andExpect(jsonPath("$.error").value("Unauthorized"))
+            .andExpect(jsonPath("$.message").isNotEmpty())
+            .andExpect(jsonPath("$.path").value("/api/v1/accounts"));
+}
 }

@@ -10,7 +10,7 @@ import com.modernbank.modernbank.repository.UserRepository;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
+import java.nio.charset.StandardCharsets;
 @Service
 public class AuthService {
 
@@ -32,6 +32,15 @@ public class AuthService {
         String email = request.email()
                 .trim()
                 .toLowerCase(Locale.ROOT);
+
+          int passwordBytes = request.password()
+        .getBytes(StandardCharsets.UTF_8).length;
+
+if (passwordBytes > 72) {
+    throw new InvalidCredentialsException(
+            "Invalid email or password"
+    );
+}
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new InvalidCredentialsException(

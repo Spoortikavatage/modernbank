@@ -1,6 +1,8 @@
 
 package com.modernbank.modernbank.controller;
 
+import com.modernbank.modernbank.dto.DepositRequest;
+import com.modernbank.modernbank.dto.WithdrawalRequest;
 import com.modernbank.modernbank.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -329,5 +331,287 @@ void invalidPaginationParametersShouldReturnBadRequest()
 
         return json.get("accessToken").stringValue();
     }
+    @Test
+void depositWithZeroAmountShouldReturnBadRequest() throws Exception {
 
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", 0,
+                    "description", "Zero amount deposit test"
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/deposits", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void withdrawalWithZeroAmountShouldReturnBadRequest() throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", 0,
+                    "description", "Zero amount withdrawal test"
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/withdrawals", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void depositWithMoreThanTwoDecimalPlacesShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", new java.math.BigDecimal("10.123"),
+                    "description", "Invalid precision deposit test"
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/deposits", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void withdrawalWithMoreThanTwoDecimalPlacesShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", new java.math.BigDecimal("10.123"),
+                    "description", "Invalid precision withdrawal test"
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/withdrawals", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void depositWithNegativeAmountShouldReturnBadRequest() throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", -10,
+                    "description", "Negative amount deposit test"
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/deposits", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void withdrawalWithNegativeAmountShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", -10,
+                    "description", "Negative amount withdrawal test"
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/withdrawals", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void depositWithDescriptionExceeding255CharactersShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", 100,
+                    "description", "a".repeat(256)
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/deposits", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void withdrawalWithDescriptionExceeding255CharactersShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", 100,
+                    "description", "a".repeat(256)
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/withdrawals", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void depositWithoutAmountShouldReturnBadRequest() throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of("description", "Deposit without amount")
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/deposits", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void withdrawalWithoutAmountShouldReturnBadRequest() throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of("description", "Withdrawal without amount")
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/withdrawals", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void depositWithTooManyIntegerDigitsShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", new java.math.BigDecimal("100000000000000000"),
+                    "description", "Amount exceeds allowed digits"
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/deposits", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void withdrawalWithTooManyIntegerDigitsShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+    long accountId = createAccount(token);
+
+    String body = objectMapper.writeValueAsString(
+            Map.of(
+                    "amount", new java.math.BigDecimal("100000000000000000"),
+                    "description", "Amount exceeds allowed digits"
+            )
+    );
+
+    mockMvc.perform(
+            post("/api/v1/accounts/{accountId}/withdrawals", accountId)
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+    )
+            .andExpect(status().isBadRequest());
+}
+@Test
+void depositWithBlankDescriptionShouldBeAccepted() throws Exception {
+    String token = registerAndLogin();
+    Long accountId = createAccount(token);
+
+    DepositRequest request = new DepositRequest(
+            new java.math.BigDecimal("100.00"), " ");
+
+    mockMvc.perform(post("/api/v1/accounts/" + accountId + "/deposits")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isCreated());
+}
+
+@Test
+void withdrawalWithBlankDescriptionShouldBeAccepted() throws Exception {
+    String token = registerAndLogin();
+    Long accountId = createAccount(token);
+    deposit(token, accountId, 500);
+
+    WithdrawalRequest request = new WithdrawalRequest(
+            new java.math.BigDecimal("100.00"), " ");
+
+    mockMvc.perform(post("/api/v1/accounts/" + accountId + "/withdrawals")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isCreated());
+}
 }

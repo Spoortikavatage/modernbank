@@ -11,6 +11,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+
 @Service
 public class UserService {
 
@@ -34,7 +38,15 @@ public class UserService {
     throw new EmailAlreadyExistsException(
             "An account with this email already exists");
 }
+        int passwordBytes = request.password()
+        .getBytes(StandardCharsets.UTF_8).length;
 
+if (passwordBytes > 72) {
+    throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "Password must not exceed 72 UTF-8 bytes"
+    );
+}
         String passwordHash =
                 passwordEncoder.encode(request.password());
 

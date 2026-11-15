@@ -626,6 +626,402 @@ void concurrentTransfersCannotOverdrawAccount() throws Exception {
         executor.shutdownNow();
     }
 }
+@Test
+void transferWithZeroSenderAccountIdShouldReturnBadRequest()
+        throws Exception {
 
+    String token = registerAndLogin();
 
+    String transferBody = objectMapper.writeValueAsString(
+        Map.of(
+            "fromAccountId", 0,
+            "toAccountId", 10,
+            "amount", 100,
+            "description", "Invalid sender account test",
+            "idempotencyKey", UUID.randomUUID().toString()
+        )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(transferBody))
+        .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithNegativeSenderAccountIdShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+        Map.of(
+            "fromAccountId", -10,
+            "toAccountId", 10,
+            "amount", 100,
+            "description", "Negative sender account test",
+            "idempotencyKey", UUID.randomUUID().toString()
+        )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(transferBody))
+        .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithZeroReceiverAccountIdShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+        Map.of(
+            "fromAccountId", 10,
+            "toAccountId", 0,
+            "amount", 100,
+            "description", "Invalid receiver account test",
+            "idempotencyKey", UUID.randomUUID().toString()
+        )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(transferBody))
+        .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithNegativeReceiverAccountIdShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+        Map.of(
+            "fromAccountId", 10,
+            "toAccountId", -10,
+            "amount", 100,
+            "description", "Negative receiver account test",
+            "idempotencyKey", UUID.randomUUID().toString()
+        )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(transferBody))
+        .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithBlankIdempotencyKeyShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "amount", 100,
+                    "description", "Blank idempotency key test",
+                    "idempotencyKey", " "
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithIdempotencyKeyExceeding100CharactersShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "amount", 100,
+                    "description", "Long idempotency key test",
+                    "idempotencyKey", "a".repeat(101)
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithoutAmountShouldReturnBadRequest() throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "description", "Missing amount test",
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithoutSenderAccountIdShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "toAccountId", 20,
+                    "amount", 100,
+                    "description", "Missing sender account test",
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithoutReceiverAccountIdShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "amount", 100,
+                    "description", "Missing receiver account test",
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithZeroAmountShouldReturnBadRequest() throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "amount", 0,
+                    "description", "Zero amount test",
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithNegativeAmountShouldReturnBadRequest() throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "amount", -100,
+                    "description", "Negative amount test",
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithMoreThanTwoDecimalPlacesShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "amount", new java.math.BigDecimal("100.123"),
+                    "description", "Decimal precision test",
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithTooManyIntegerDigitsShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "amount", new java.math.BigDecimal("123456789012345678.00"),
+                    "description", "Oversized amount test",
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithDescriptionExceeding255CharactersShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "amount", 100,
+                    "description", "a".repeat(256),
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void transferWithoutIdempotencyKeyShouldReturnBadRequest()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "amount", 100,
+                    "description", "Missing idempotency key test"
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest());
+}
+@Test
+void invalidTransferRequestShouldReturnStandardErrorResponse()
+        throws Exception {
+
+    String token = registerAndLogin();
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", 10,
+                    "toAccountId", 20,
+                    "amount", 0,
+                    "description", "Validation response test",
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.timestamp").isNotEmpty())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.error").value("Bad Request"))
+            .andExpect(jsonPath("$.message").isNotEmpty())
+            .andExpect(jsonPath("$.path").value("/api/v1/transfers"));
+}
+@Test
+void transferWithBlankDescriptionShouldBeAccepted() throws Exception {
+    String token = registerAndLogin();
+    Long fromAccountId = createAccount(token);
+    Long toAccountId = createAccount(token);
+
+    deposit(token, fromAccountId, 500);
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", fromAccountId,
+                    "toAccountId", toAccountId,
+                    "amount", 100,
+                    "description", " ",
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isCreated());
+}
+
+@Test
+void transferWithoutDescriptionShouldBeAccepted() throws Exception {
+    String token = registerAndLogin();
+    Long fromAccountId = createAccount(token);
+    Long toAccountId = createAccount(token);
+
+    deposit(token, fromAccountId, 500);
+
+    String transferBody = objectMapper.writeValueAsString(
+            Map.of(
+                    "fromAccountId", fromAccountId,
+                    "toAccountId", toAccountId,
+                    "amount", 100,
+                    "idempotencyKey", UUID.randomUUID().toString()
+            )
+    );
+
+    mockMvc.perform(post("/api/v1/transfers")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(transferBody))
+            .andExpect(status().isCreated());
+}
 }
